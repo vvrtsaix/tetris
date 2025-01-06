@@ -2,6 +2,8 @@
 
 A modern implementation of the classic Tetris game written in Rust using the Raylib graphics library.
 
+![Game Preview](./preview.png)
+
 ## Features
 
 - Classic Tetris gameplay mechanics
@@ -49,29 +51,25 @@ A modern implementation of the classic Tetris game written in Rust using the Ray
 
 ### Installation
 
-1. Clone the repository:
+  1. Clone the repository:
 
-  ```bash
-  git clone https://github.com/yourusername/tetris.git
-  cd tetris
-  ```
+    ```bash
+    git clone https://github.com/yourusername/tetris.git
+    cd tetris
+    ```
 
-2. Build and run the game:
+  2. Build and run the game:
 
-  ```bash
-  cargo run --release
-  ```
+    ```bash
+    cargo run --release
+    ```
 
 ## Dependencies
 
-- `raylib`: Graphics and input handling
-- `rodio`: Audio playback
+- `raylib`: Graphics, input handling, and audio
+- `rand`: Random number generation
 
-## License
-
-This project is open source and available under the MIT License.
-
-## Credits
+## Asset Requirements
 
 Sound effects and background music should be placed in:
 
@@ -85,5 +83,7 @@ Required sound files:
 - hard_drop.wav
 - line_clear.wav
 - game_over.wav
-- hold.wav
-- pause.wav
+
+## License
+
+This project is open source and available under the MIT License.

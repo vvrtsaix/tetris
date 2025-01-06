@@ -1,71 +1,67 @@
 use raylib::prelude::*;
-use rodio::{Decoder, OutputStream, Sink, Source};
-use std::fs::File;
-use std::io::BufReader;
 use std::time::{Duration, Instant};
 
 mod tetris;
 use tetris::*;
 
-struct SoundEffects {
-    move_sink: Sink,
-    rotate_sink: Sink,
-    hard_drop_sink: Sink,
-    line_clear_sink: Sink,
-    game_over_sink: Sink,
+struct SoundEffects<'a> {
+    move_sound: Sound<'a>,
+    rotate_sound: Sound<'a>,
+    hard_drop_sound: Sound<'a>,
+    line_clear_sound: Sound<'a>,
+    game_over_sound: Sound<'a>,
     last_line_clear: Instant,
 }
 
-impl SoundEffects {
-    fn new(stream_handle: &rodio::OutputStreamHandle) -> Self {
+impl<'a> SoundEffects<'a> {
+    fn new(rl: &'a RaylibAudio) -> Self {
         Self {
-            move_sink: Sink::try_new(stream_handle).unwrap(),
-            rotate_sink: Sink::try_new(stream_handle).unwrap(),
-            hard_drop_sink: Sink::try_new(stream_handle).unwrap(),
-            line_clear_sink: Sink::try_new(stream_handle).unwrap(),
-            game_over_sink: Sink::try_new(stream_handle).unwrap(),
+            move_sound: rl
+                .new_sound("assets/sounds/move.wav")
+                .expect("Failed to load move sound"),
+            rotate_sound: rl
+                .new_sound("assets/sounds/rotate.wav")
+                .expect("Failed to load rotate sound"),
+            hard_drop_sound: rl
+                .new_sound("assets/sounds/hard_drop.wav")
+                .expect("Failed to load hard drop sound"),
+            line_clear_sound: rl
+                .new_sound("assets/sounds/line_clear.wav")
+                .expect("Failed to load line clear sound"),
+            game_over_sound: rl
+                .new_sound("assets/sounds/game_over.wav")
+                .expect("Failed to load game over sound"),
             last_line_clear: Instant::now(),
         }
     }
 
-    fn play_sound(&self, sink: &Sink, file_path: &str, volume: f32) {
-        sink.stop(); // Stop any previous sound
-        let file = BufReader::new(File::open(file_path).unwrap());
-        let source = rodio::Decoder::new(file).unwrap();
-        let source = source.amplify(volume);
-        sink.append(source);
-        sink.play(); // Ensure it starts playing immediately
+    fn play_move(&mut self) {
+        self.move_sound.set_volume(0.5);
+        self.move_sound.play();
     }
 
-    fn play_move(&self) {
-        self.play_sound(&self.move_sink, "assets/sounds/move.wav", 0.5);
+    fn play_rotate(&mut self) {
+        self.rotate_sound.set_volume(0.2);
+        self.rotate_sound.play();
     }
 
-    fn play_rotate(&self) {
-        self.play_sound(&self.rotate_sink, "assets/sounds/rotate.wav", 0.2);
-    }
-
-    fn play_hard_drop(&self) {
-        self.play_sound(&self.hard_drop_sink, "assets/sounds/hard_drop.wav", 0.5);
+    fn play_hard_drop(&mut self) {
+        self.hard_drop_sound.set_volume(0.5);
+        self.hard_drop_sound.play();
     }
 
     fn try_play_line_clear(&mut self) {
-        // Only play if enough time has passed since last play (200ms cooldown)
         if self.last_line_clear.elapsed() >= Duration::from_millis(200) {
-            self.play_sound(&self.line_clear_sink, "assets/sounds/line_clear.wav", 1.0);
+            self.line_clear_sound.set_volume(1.0);
+            self.line_clear_sound.play();
             self.last_line_clear = Instant::now();
         }
     }
 
-    fn play_game_over(&self) {
-        self.play_sound(&self.game_over_sink, "assets/sounds/game_over.wav", 0.3);
+    fn play_game_over(&mut self) {
+        self.game_over_sound.set_volume(0.3);
+        self.game_over_sound.play();
     }
-}
-
-fn play_background_music(sink: &Sink, file_path: &str) {
-    let file = BufReader::new(File::open(file_path).unwrap());
-    let source = Decoder::new(file).unwrap().repeat_infinite();
-    sink.append(source);
 }
 
 fn main() {
@@ -77,14 +73,18 @@ fn main() {
 
     rl.set_target_fps(FPS);
 
-    // Initialize audio
-    let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let mut sound_effects = SoundEffects::new(&stream_handle);
-    let music_sink = Sink::try_new(&stream_handle).unwrap();
+    // Initialize audio device
+    let audio_device = RaylibAudio::init_audio_device().expect("Failed to initialize audio device");
 
-    // Start background music
-    play_background_music(&music_sink, "assets/background.mp3");
-    music_sink.set_volume(0.2);
+    // Load sound effects
+    let mut sound_effects = SoundEffects::new(&audio_device);
+
+    // Load and play background music
+    let mut music = audio_device
+        .new_music("assets/background.mp3")
+        .expect("Failed to load background music");
+    music.set_volume(0.2);
+    music.play_stream();
 
     let mut game = Game::default();
     game.start_game();
@@ -95,6 +95,9 @@ fn main() {
     let mut rotate_key = KeyState::new(true);
 
     while !rl.window_should_close() {
+        // Update music stream
+        music.update_stream();
+
         // Handle input
         if game.state == GameState::Playing {
             let mut moved = false;
@@ -148,23 +151,22 @@ fn main() {
         if rl.is_key_pressed(KeyboardKey::KEY_P) {
             game.toggle_pause();
             if game.state == GameState::Paused {
-                music_sink.pause();
+                music.pause_stream();
             } else {
-                music_sink.play();
+                music.resume_stream();
             }
         }
         if rl.is_key_pressed(KeyboardKey::KEY_R) && game.state == GameState::GameOver {
             game.start_game();
-            music_sink.play();
+            music.resume_stream();
         }
 
         let prev_state = game.state;
-        let prev_level = game.score.level;
 
         // Check if lines were cleared and play sound
         if game.lines_just_cleared {
             sound_effects.try_play_line_clear();
-            game.lines_just_cleared = false; // Reset the flag after playing sound
+            game.lines_just_cleared = false;
         }
 
         game.update();
@@ -172,12 +174,7 @@ fn main() {
         // Play game over sound if state changed to GameOver
         if prev_state != GameState::GameOver && game.state == GameState::GameOver {
             sound_effects.play_game_over();
-            music_sink.pause();
-        }
-
-        // Check if level changed and play sound
-        if game.score.level > prev_level {
-            // Don't play line clear sound for level up, it's too much
+            music.pause_stream();
         }
 
         // Render
