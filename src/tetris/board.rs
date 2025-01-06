@@ -55,28 +55,6 @@ impl Board {
         })
     }
 
-    pub fn is_valid_spawn_position(&self, block: &Block) -> bool {
-        block.blocks().iter().all(|&(x, y)| {
-            let x = x as usize;
-
-            // Only check horizontal bounds and collisions for parts inside the board
-            if x >= BOARD_WIDTH {
-                return false;
-            }
-
-            // If the block part is inside the board, check for collision
-            if y >= 0 {
-                let y = y as usize;
-                if y < BOARD_HEIGHT {
-                    return matches!(self.cells[y][x], Cell::Empty);
-                }
-            }
-
-            // Allow parts to be above the board
-            true
-        })
-    }
-
     pub fn place_block(&mut self, block: &Block) -> bool {
         if !self.is_valid_position(block) {
             return false;

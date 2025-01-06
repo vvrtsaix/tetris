@@ -90,16 +90,4 @@ impl Block {
         self.y = -2;
         self.rotation = 0;
     }
-
-    pub fn move_left(&mut self) {
-        self.x -= 1;
-    }
-
-    pub fn move_right(&mut self) {
-        self.x += 1;
-    }
-
-    pub fn move_down(&mut self) {
-        self.y += 1;
-    }
 }
