@@ -4,6 +4,55 @@ use super::{Block, BlockKind, Board};
 
 pub const INITIAL_FALL_INTERVAL: Duration = Duration::from_millis(800);
 pub const SOFT_DROP_FACTOR: f32 = 0.05;
+pub const SHAKE_DURATION: Duration = Duration::from_millis(300);
+pub const SHAKE_INTENSITY_PER_LINE: f32 = 3.0;
+
+// Level speed factors (each level will be this much faster than the previous)
+pub const LEVEL_SPEED_FACTOR: f32 = 0.8; // 20% faster each level
+
+pub struct ScreenShake {
+    pub intensity: f32,
+    pub duration: Duration,
+    pub start_time: Option<Instant>,
+}
+
+impl Default for ScreenShake {
+    fn default() -> Self {
+        Self {
+            intensity: 0.0,
+            duration: Duration::from_millis(0),
+            start_time: None,
+        }
+    }
+}
+
+impl ScreenShake {
+    pub fn start(&mut self, lines_cleared: u32) {
+        self.intensity = lines_cleared as f32 * SHAKE_INTENSITY_PER_LINE;
+        self.duration = SHAKE_DURATION;
+        self.start_time = Some(Instant::now());
+    }
+
+    pub fn get_offset(&self) -> (i32, i32) {
+        if let Some(start_time) = self.start_time {
+            let elapsed = start_time.elapsed();
+            if elapsed >= self.duration {
+                return (0, 0);
+            }
+
+            let progress = elapsed.as_secs_f32() / self.duration.as_secs_f32();
+            let decay = 1.0 - progress;
+            let angle = progress * 20.0; // Increase for more rapid shaking
+
+            let x_offset = (angle.sin() * self.intensity * decay) as i32;
+            let y_offset = (angle.cos() * self.intensity * decay) as i32;
+            
+            (x_offset, y_offset)
+        } else {
+            (0, 0)
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum GameState {
@@ -34,6 +83,15 @@ pub struct GameTimer {
     pub soft_drop: bool,
 }
 
+impl GameTimer {
+    pub fn get_fall_interval(&self, level: u32) -> Duration {
+        // Calculate speed based on level
+        let speed_factor = LEVEL_SPEED_FACTOR.powi(level as i32 - 1);
+        let interval = INITIAL_FALL_INTERVAL.as_secs_f32() * speed_factor;
+        Duration::from_secs_f32(interval)
+    }
+}
+
 impl Default for GameTimer {
     fn default() -> Self {
         Self {
@@ -52,6 +110,9 @@ pub struct Game {
     pub state: GameState,
     pub score: Score,
     pub timer: GameTimer,
+    pub has_held: bool,
+    pub screen_shake: ScreenShake,
+    pub lines_just_cleared: bool,
 }
 
 impl Default for Game {
@@ -64,6 +125,9 @@ impl Default for Game {
             state: GameState::Playing,
             score: Score::default(),
             timer: GameTimer::default(),
+            has_held: false,
+            screen_shake: ScreenShake::default(),
+            lines_just_cleared: false,
         }
     }
 }
@@ -118,9 +182,14 @@ impl Game {
         }
 
         let lines_cleared = self.board.clear_full_rows();
+        if lines_cleared > 0 {
+            self.screen_shake.start(lines_cleared);
+            self.lines_just_cleared = true;
+        }
         self.update_score(lines_cleared);
         self.current_block = self.next_block;
         self.next_block = Block::new(BlockKind::random());
+        self.has_held = false;
 
         lines_cleared > 0
     }
@@ -141,8 +210,12 @@ impl Game {
 
     pub fn update(&mut self) {
         if self.state != GameState::Playing {
+            self.lines_just_cleared = false;
             return;
         }
+
+        // Update fall interval based on current level
+        self.timer.fall_interval = self.timer.get_fall_interval(self.score.level);
 
         let fall_interval = if self.timer.soft_drop {
             self.timer.fall_interval.mul_f32(SOFT_DROP_FACTOR)
