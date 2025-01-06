@@ -50,15 +50,17 @@ A modern implementation of the classic Tetris game written in Rust using the Ray
 ### Installation
 
 1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/tetris.git
-cd tetris
-```
+
+  ```bash
+  git clone https://github.com/yourusername/tetris.git
+  cd tetris
+  ```
 
 2. Build and run the game:
-```bash
-cargo run --release
-```
+
+  ```bash
+  cargo run --release
+  ```
 
 ## Dependencies
 
@@ -72,14 +74,16 @@ This project is open source and available under the MIT License.
 ## Credits
 
 Sound effects and background music should be placed in:
+
 - `assets/sounds/` - For sound effects
 - `assets/` - For background music (background.mp3)
 
 Required sound files:
+
 - move.wav
 - rotate.wav
 - hard_drop.wav
 - line_clear.wav
 - game_over.wav
 - hold.wav
-- pause.wav 
+- pause.wav
