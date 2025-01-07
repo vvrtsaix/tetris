@@ -64,7 +64,8 @@ impl<'a> SoundEffects<'a> {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let (mut rl, thread) = raylib::init()
         .size(WINDOW_WIDTH, WINDOW_HEIGHT)
         .title("Tetris")
@@ -87,6 +88,12 @@ fn main() {
     music.play_stream();
 
     let mut game = Game::default();
+
+    // Connect to multiplayer server
+    if let Err(e) = game.connect_multiplayer("ws://localhost:8080").await {
+        eprintln!("Failed to connect to multiplayer server: {}", e);
+    }
+
     game.start_game();
 
     let mut left_key = KeyState::new(false);
@@ -208,6 +215,16 @@ fn main() {
             );
         }
 
+        // Draw scoreboard
+        draw_scoreboard(
+            &mut d,
+            game.score.points,
+            game.score.lines,
+            game.score.level,
+            &game.other_players,
+            game.player_id.as_deref(),
+        );
+
         d.draw_text(
             "Next:",
             BOARD_OFFSET_X + (BOARD_WIDTH as i32 * CELL_SIZE) + 30 + shake_x,
@@ -237,28 +254,6 @@ fn main() {
                 BOARD_OFFSET_Y + 130 + shake_y,
             );
         }
-
-        d.draw_text(
-            &format!("Score: {}", game.score.points),
-            20 + shake_x,
-            BOARD_OFFSET_Y + shake_y,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!("Level: {}", game.score.level),
-            20 + shake_x,
-            BOARD_OFFSET_Y + 30 + shake_y,
-            20,
-            Color::WHITE,
-        );
-        d.draw_text(
-            &format!("Lines: {}", game.score.lines),
-            20 + shake_x,
-            BOARD_OFFSET_Y + 60 + shake_y,
-            20,
-            Color::WHITE,
-        );
 
         match game.state {
             GameState::Paused | GameState::GameOver => {

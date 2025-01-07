@@ -3,6 +3,20 @@ name = "tetris"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "tetris"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tetris-server"
+path = "src/bin/server.rs"
+
 [dependencies]
 rand = "0.8.5"
 raylib = "5.0.2"
+tokio = { version = "1.36.0", features = ["full"] }
+tokio-tungstenite = "0.21.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+futures-util = "0.3"
+uuid = { version = "1.7.0", features = ["v4"] }

@@ -1,6 +1,8 @@
 use std::time::{Duration, Instant};
+use std::collections::HashMap;
 
 use super::{Block, BlockKind, Board};
+use crate::tetris::multiplayer::{GameMessage, MultiplayerClient};
 
 pub const INITIAL_FALL_INTERVAL: Duration = Duration::from_millis(800);
 pub const SOFT_DROP_FACTOR: f32 = 0.05;
@@ -107,12 +109,15 @@ pub struct Game {
     pub current_block: Block,
     pub next_block: Block,
     pub hold_block: Option<Block>,
+    pub has_held: bool,
     pub state: GameState,
     pub score: Score,
     pub timer: GameTimer,
-    pub has_held: bool,
     pub screen_shake: ScreenShake,
     pub lines_just_cleared: bool,
+    pub player_id: Option<String>,
+    pub other_players: HashMap<String, i32>,
+    pub multiplayer: Option<MultiplayerClient>,
 }
 
 impl Default for Game {
@@ -122,12 +127,15 @@ impl Default for Game {
             current_block: Block::new(BlockKind::random()),
             next_block: Block::new(BlockKind::random()),
             hold_block: None,
+            has_held: false,
             state: GameState::Playing,
             score: Score::default(),
             timer: GameTimer::default(),
-            has_held: false,
             screen_shake: ScreenShake::default(),
             lines_just_cleared: false,
+            player_id: None,
+            other_players: HashMap::new(),
+            multiplayer: None,
         }
     }
 }
@@ -210,8 +218,51 @@ impl Game {
 
     pub fn update(&mut self) {
         if self.state != GameState::Playing {
-            self.lines_just_cleared = false;
             return;
+        }
+
+        // Update multiplayer state
+        if let Some(client) = &mut self.multiplayer {
+            // Send our game state
+            if let Some(player_id) = &self.player_id {
+                client.send(GameMessage::GameState {
+                    player_id: player_id.clone(),
+                    score: self.score.points as i32,
+                });
+            }
+
+            // Receive other players' states
+            while let Some(msg) = client.try_receive() {
+                match msg {
+                    GameMessage::Join { player_id } => {
+                        if self.player_id.is_none() {
+                            self.player_id = Some(player_id.clone());
+                        }
+                        // Initialize score for new player
+                        if player_id != self.player_id.clone().unwrap_or_default() {
+                            self.other_players.insert(player_id, 0);
+                        }
+                    }
+                    GameMessage::GameState { player_id, score } => {
+                        if Some(&player_id) != self.player_id.as_ref() {
+                            self.other_players.insert(player_id, score);
+                        }
+                    }
+                    GameMessage::LineCleared { player_id, count } => {
+                        if Some(&player_id) != self.player_id.as_ref() {
+                            self.board.add_garbage_lines(count);
+                        }
+                    }
+                    GameMessage::PlayerLeft { player_id } => {
+                        self.other_players.remove(&player_id);
+                    }
+                    GameMessage::GameOver { player_id } => {
+                        if Some(&player_id) == self.player_id.as_ref() {
+                            self.state = GameState::GameOver;
+                        }
+                    }
+                }
+            }
         }
 
         // Update fall interval based on current level
@@ -241,6 +292,47 @@ impl Game {
     }
 
     pub fn start_game(&mut self) {
-        *self = Game::default();
+        let multiplayer = self.multiplayer.take();
+        let player_id = self.player_id.clone();
+        let other_players = std::mem::take(&mut self.other_players);
+
+        self.board = Board::new();
+        self.current_block = Block::new(BlockKind::random());
+        self.next_block = Block::new(BlockKind::random());
+        self.hold_block = None;
+        self.has_held = false;
+        self.state = GameState::Playing;
+        self.score = Score::default();
+        self.timer = GameTimer::default();
+        self.screen_shake = ScreenShake::default();
+        self.lines_just_cleared = false;
+
+        // Restore multiplayer state
+        self.multiplayer = multiplayer;
+        self.player_id = player_id;
+        self.other_players = other_players;
+    }
+
+    pub async fn connect_multiplayer(&mut self, server_addr: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let client = MultiplayerClient::connect(server_addr).await?;
+        self.multiplayer = Some(client);
+        Ok(())
+    }
+
+    pub fn clear_lines(&mut self) -> u32 {
+        let lines = self.board.clear_lines();
+        if lines > 0 {
+            self.lines_just_cleared = true;
+            // Send line clear message in multiplayer
+            if let Some(client) = &self.multiplayer {
+                if let Some(player_id) = &self.player_id {
+                    client.send(GameMessage::LineCleared {
+                        player_id: player_id.clone(),
+                        count: i32::try_from(lines).unwrap_or(0),
+                    });
+                }
+            }
+        }
+        lines
     }
 }

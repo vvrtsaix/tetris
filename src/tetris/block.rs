@@ -14,7 +14,7 @@ pub enum BlockKind {
 impl BlockKind {
     pub fn random() -> Self {
         let mut rng = rand::thread_rng();
-        match rng.gen_range(0..7) {
+        match rng.gen_range(0..1) {
             0 => BlockKind::I,
             1 => BlockKind::J,
             2 => BlockKind::L,

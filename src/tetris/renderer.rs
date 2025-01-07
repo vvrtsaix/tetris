@@ -1,6 +1,6 @@
 use raylib::prelude::*;
-
 use super::{Block, BlockKind, Board, Cell, BOARD_HEIGHT, BOARD_WIDTH};
+use std::collections::HashMap;
 
 pub const WINDOW_WIDTH: i32 = 750;
 pub const WINDOW_HEIGHT: i32 = 800;
@@ -14,6 +14,11 @@ pub const PREVIEW_CELL_SIZE: i32 = 25;
 pub const BLOCK_ROUNDNESS: f32 = 0.3;
 pub const GHOST_ALPHA: u8 = 50;
 pub const CELL_PADDING: i32 = 3;
+
+// Scoreboard constants
+pub const SCOREBOARD_X: i32 = BOARD_OFFSET_X + (BOARD_WIDTH as i32 * CELL_SIZE) + 30;
+pub const SCOREBOARD_Y: i32 = BOARD_OFFSET_Y + 150;
+pub const SCOREBOARD_SPACING: i32 = 25;
 
 // Background color
 pub const BACKGROUND_COLOR: Color = Color::new(46, 52, 64, 255); // Nord0 - Polar Night
@@ -145,4 +150,90 @@ pub fn draw_board(d: &mut RaylibDrawHandle, board: &Board, offset_x: i32, offset
             }
         }
     }
+}
+
+pub fn draw_scoreboard(
+    d: &mut RaylibDrawHandle,
+    player_score: u32,
+    player_lines: u32,
+    player_level: u32,
+    other_players: &HashMap<String, i32>,
+    current_player_id: Option<&str>,
+) {
+    // Draw scoreboard title
+    d.draw_text(
+        "SCOREBOARD",
+        SCOREBOARD_X,
+        SCOREBOARD_Y,
+        25,
+        Color::WHITE,
+    );
+
+    // Sort all players by score (including current player)
+    let mut all_players = Vec::new();
+    for (id, score) in other_players {
+        all_players.push((id.as_str(), *score));
+    }
+    if let Some(player_id) = current_player_id {
+        all_players.push((player_id, player_score as i32));
+    }
+    all_players.sort_by(|a, b| b.1.cmp(&a.1));
+
+    // Display top 10 players
+    for (i, (player_id, score)) in all_players.iter().take(10).enumerate() {
+        let y_offset = SCOREBOARD_Y + SCOREBOARD_SPACING * (2 + i as i32);
+        let id_short = &player_id[..6.min(player_id.len())]; // Show first 6 characters of UUID
+        
+        // Highlight current player
+        let (text, color) = if Some(*player_id) == current_player_id {
+            (format!("YOU: {}", score), Color::YELLOW)
+        } else {
+            (format!("{}... : {}", id_short, score), Color::WHITE)
+        };
+
+        d.draw_text(
+            &text,
+            SCOREBOARD_X,
+            y_offset,
+            20,
+            color,
+        );
+    }
+
+    // Show total player count if there are more players
+    let total_players = all_players.len();
+    if total_players > 10 {
+        let total_y = SCOREBOARD_Y + SCOREBOARD_SPACING * 13;
+        d.draw_text(
+            &format!("+ {} more players", total_players - 10),
+            SCOREBOARD_X,
+            total_y,
+            20,
+            Color::WHITE,
+        );
+    }
+
+    // Draw player stats
+    let stats_y = SCOREBOARD_Y + SCOREBOARD_SPACING * 15;
+    d.draw_text(
+        "YOUR STATS",
+        SCOREBOARD_X,
+        stats_y,
+        20,
+        Color::YELLOW,
+    );
+    d.draw_text(
+        &format!("Lines: {}", player_lines),
+        SCOREBOARD_X,
+        stats_y + SCOREBOARD_SPACING,
+        20,
+        Color::WHITE,
+    );
+    d.draw_text(
+        &format!("Level: {}", player_level),
+        SCOREBOARD_X,
+        stats_y + SCOREBOARD_SPACING * 2,
+        20,
+        Color::WHITE,
+    );
 }
