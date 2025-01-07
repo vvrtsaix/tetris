@@ -21,17 +21,17 @@ pub const SCOREBOARD_Y: i32 = BOARD_OFFSET_Y + 150;
 pub const SCOREBOARD_SPACING: i32 = 25;
 
 // Background color
-pub const BACKGROUND_COLOR: Color = Color::new(46, 52, 64, 255); // Nord0 - Polar Night
-pub const GRID_COLOR: Color = Color::new(59, 66, 82, 255); // Nord1 - Slightly lighter
+pub const BACKGROUND_COLOR: Color = Color::new(46, 52, 64, 255);
+pub const GRID_COLOR: Color = Color::new(59, 66, 82, 255);
 
 pub const COLORS: [Color; 7] = [
-    Color::new(136, 192, 208, 255), // I - Nord8 - Frost
-    Color::new(129, 161, 193, 255), // J - Nord9 - Frost
-    Color::new(191, 97, 106, 255),  // L - Nord11 - Aurora
-    Color::new(235, 203, 139, 255), // O - Nord13 - Aurora
-    Color::new(163, 190, 140, 255), // S - Nord14 - Aurora
-    Color::new(180, 142, 173, 255), // T - Nord15 - Aurora
-    Color::new(208, 135, 112, 255), // Z - Nord12 - Aurora
+    Color::new(136, 192, 208, 255), // I
+    Color::new(129, 161, 193, 255), // J
+    Color::new(191, 97, 106, 255),  // L
+    Color::new(235, 203, 139, 255), // O
+    Color::new(163, 190, 140, 255), // S
+    Color::new(180, 142, 173, 255), // T
+    Color::new(208, 135, 112, 255), // Z
 ];
 
 pub fn draw_rounded_block(d: &mut RaylibDrawHandle, x: i32, y: i32, size: i32, color: Color) {
@@ -170,22 +170,27 @@ pub fn draw_scoreboard(
     );
 
     // Sort all players by score (including current player)
-    let mut all_players = Vec::new();
-    for (id, score) in other_players {
-        all_players.push((id.as_str(), *score));
-    }
+    let mut all_players: Vec<(&str, i32)> = other_players
+        .iter()
+        .map(|(id, &score)| (id.as_str(), score))
+        .collect();
+    
     if let Some(player_id) = current_player_id {
         all_players.push((player_id, player_score as i32));
     }
     all_players.sort_by(|a, b| b.1.cmp(&a.1));
 
     // Display top 10 players
-    for (i, (player_id, score)) in all_players.iter().take(10).enumerate() {
+    for (i, &(player_id, score)) in all_players.iter().take(10).enumerate() {
         let y_offset = SCOREBOARD_Y + SCOREBOARD_SPACING * (2 + i as i32);
-        let id_short = &player_id[..6.min(player_id.len())]; // Show first 6 characters of UUID
+        let id_short = if player_id.len() > 6 {
+            &player_id[..6]
+        } else {
+            player_id
+        };
         
         // Highlight current player
-        let (text, color) = if Some(*player_id) == current_player_id {
+        let (text, color) = if Some(player_id) == current_player_id {
             (format!("YOU: {}", score), Color::YELLOW)
         } else {
             (format!("{}... : {}", id_short, score), Color::WHITE)

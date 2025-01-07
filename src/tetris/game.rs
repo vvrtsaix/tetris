@@ -189,7 +189,7 @@ impl Game {
             return false;
         }
 
-        let lines_cleared = self.board.clear_full_rows();
+        let lines_cleared = self.board.clear_lines();
         if lines_cleared > 0 {
             self.screen_shake.start(lines_cleared);
             self.lines_just_cleared = true;

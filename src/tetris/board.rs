@@ -130,45 +130,6 @@ impl Board {
         true
     }
 
-    pub fn is_row_full(&self, row: usize) -> bool {
-        if row >= BOARD_HEIGHT {
-            return false;
-        }
-        self.cells[row]
-            .iter()
-            .all(|&cell| matches!(cell, Cell::Filled(_)))
-    }
-
-    pub fn clear_row(&mut self, row: usize) {
-        if row >= BOARD_HEIGHT {
-            return;
-        }
-
-        // Move all rows above the cleared row down
-        for y in (1..=row).rev() {
-            self.cells[y] = self.cells[y - 1];
-        }
-
-        // Fill the top row with empty cells
-        self.cells[0] = [Cell::Empty; BOARD_WIDTH];
-    }
-
-    pub fn clear_full_rows(&mut self) -> u32 {
-        let mut cleared_rows = 0;
-        let mut row = BOARD_HEIGHT - 1;
-
-        while row > 0 {
-            if self.is_row_full(row) {
-                self.clear_row(row);
-                cleared_rows += 1;
-            } else {
-                row -= 1;
-            }
-        }
-
-        cleared_rows
-    }
-
     pub fn clear_lines(&mut self) -> u32 {
         let mut lines_cleared = 0;
         let mut y = 0;
